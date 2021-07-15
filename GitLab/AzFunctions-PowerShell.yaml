@@ -1,0 +1,59 @@
+# This file is a template, and might need editing before it works on your project.
+# This is a sample GitLab CI/CD configuration file that should run without any modifications.
+# It demonstrates a basic 3 stage CI/CD pipeline. Instead of real tests or scripts,
+# it uses echo commands to simulate the pipeline execution.
+#
+# A pipeline is composed of independent jobs that run scripts, grouped into stages.
+# Stages run in sequential order, but jobs within stages run in parallel.
+#
+# For more information, see: https://docs.gitlab.com/ee/ci/yaml/README.html#stages
+
+image:  mcr.microsoft.com/azure-powershell:latest
+
+variables:
+  #name of the zip file that will used for deploying the source code to function app
+  ZIPFILE_NAME : "Archive"
+
+  #name of the directory that will be used for hosting the deployment zip file
+  EXPORT_NAME : "Deploy"
+
+  #name of the function app
+  FUNC_APP : "iqttest"
+
+  #name of the resource group to which the function app belongs
+  FUNC_APP_RG : "iqttest2"
+
+#list of stages
+stages:          
+  - build
+  - deploy
+
+# This job runs in the build stage, which runs first.
+build-job:       
+  stage: build
+  script:
+    #install the following - Sudo and PowerShell
+    #- apt-get update
+    #- apt-get install sudo  
+    #- sudo apt-get update
+    #- sudo apt-get install -y wget apt-transport-https software-properties-common
+    #- wget -q https://packages.microsoft.com/config/ubuntu/16.04/packages-microsoft-prod.deb
+    #- sudo dpkg -i packages-microsoft-prod.deb
+    #- sudo apt-get update
+    - echo $ZIPFILE_NAME
+    - echo $EXPORT_NAME
+    - pwsh -Command Compress-Archive -Path "./*" -CompressionLevel 'Fastest' -DestinationPath "$ZIPFILE_NAME.zip" -Update
+
+  artifacts:
+    name : $EXPORT_NAME
+    paths :
+      - ./$ZIPFILE_NAME*
+
+    
+deploy-job:      # This job runs in the deploy stage.
+  image: mcr.microsoft.com/azure-cli
+  stage: deploy  # It only runs when *both* jobs in the test stage complete successfully.
+  script:
+    - az login --service-principal -u $AZ_CLIENT_ID -p $AZ_CLIENT_PASS -t $AZ_TENANT_ID
+    - az functionapp deployment source config-zip -g $FUNC_APP_RG -n $FUNC_APP --src "$ZIPFILE_NAME.zip"  --subscription $AZ_SUBSCRIPTION_ID 
+    - echo "Application successfully deployed."
